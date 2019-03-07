@@ -103,8 +103,11 @@ def nbParams(data, attr=None):
             s += str(value) + str(key) + " "
     if o < memory_size:
         s += str(o) + "o"
+
+    if s != "":
+        s = "= " + s
     print(len(attributs), " variable(s) : ", memory_size, " octets", s)
-    return memory_size
+    # return memory_size
 
 
 def nbParamsIndep(data, attr=None):
@@ -124,7 +127,22 @@ class ML2DClassifier(APrioriClassifier):
         self.likelihoods = P2D_l(df, attr)
 
     def estimClass(self, attrs):
-        target_attr = [(t, self.likelihoods[t][attrs[self.attr]])
-                       for t in self.likelihoods.keys()]
+        target_attr = [(c, self.likelihoods[c][attrs[self.attr]])
+                       for c in self.likelihoods.keys()]
+        sorted_target_attr = sorted(target_attr, key=lambda x: (x[1], -x[0]))
+        return sorted_target_attr[-1][0]
+
+
+class MAP2DClassifier(APrioriClassifier):
+
+    def __init__(self, df, attr):
+        APrioriClassifier.__init__(self)
+        self.df = df
+        self.attr = attr
+        self.probabilities = P2D_p(df, attr)
+
+    def estimClass(self, attrs):
+        target_attr = [(c, p)
+                       for c, p in self.probabilities[attrs[self.attr]].items()]
         sorted_target_attr = sorted(target_attr, key=lambda x: (x[1], -x[0]))
         return sorted_target_attr[-1][0]
