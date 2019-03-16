@@ -9,6 +9,7 @@ import scipy
 import utils as ut
 
 
+# Question 1
 def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
@@ -22,6 +23,7 @@ def getPrior(df, class_value=1):
             'max5pourcent': max5percent}
 
 
+# Question 2
 class APrioriClassifier(ut.AbstractClassifier):
     """
     """
@@ -215,7 +217,7 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
         self.params = params(df, P2D_p)
         self.classes = df['target'].unique()
         self.exp = len(self.params) - 1
-        self.priors = {c: getPrior(df, class_value=c)[if () else 0)
+        self.priors = {c: getPrior(df, class_value=c)[
             'estimation'] ** self.exp for c in self.classes}
 
     def estimProbas(self, data):
