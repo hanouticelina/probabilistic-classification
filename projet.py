@@ -250,3 +250,37 @@ def isIndepFromTarget(df, attr, x):
         dico[index_of[v]][cl] += n
     chi2, p, lib, expected = scipy.stats.chi2_contingency(dico)
     return x < p
+
+
+class ReducedMLNaiveBayesClassifier(MLNaiveBayesClassifier):
+    def __init__(self, df, threshold):
+        MLNaiveBayesClassifier.__init__(self, df)
+        deletion = []
+        for attr, dico in self.params.items():
+            if isIndepFromTarget(df, attr, threshold):
+                deletion.append(attr)
+        for attr in deletion:
+            del self.params[attr]
+
+    def draw(self):
+        s = ""
+        for k in self.params:
+            s += " " + k
+        return ut.drawGraph('target' + "->{" + s + "}")
+
+
+class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
+    def __init__(self, df, threshold):
+        MAPNaiveBayesClassifier.__init__(self, df)
+        deletion = []
+        for attr, dico in self.params.items():
+            if isIndepFromTarget(df, attr, threshold):
+                deletion.append(attr)
+        for attr in deletion:
+            del self.params[attr]
+
+    def draw(self):
+        s = ""
+        for k in self.params:
+            s += " " + k
+        return ut.drawGraph('target' + "->{" + s + "}")
