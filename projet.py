@@ -9,14 +9,15 @@ import scipy
 import utils as ut
 
 
-def getPrior(df):
+def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
-    mean = target_values.mean()
-    std = np.sqrt(mean * (1 - mean) / target_values.size)
-    min5percent = mean - t_alpha * std
-    max5percent = mean + t_alpha * std
-    return {'estimation': mean,
+    freq = len(target_values[target_values
+                             == class_value]) / len(target_values)
+    std = np.sqrt(freq * (1 - freq) / target_values.size)
+    min5percent = freq - t_alpha * std
+    max5percent = freq + t_alpha * std
+    return {'estimation': freq,
             'min5pourcent': min5percent,
             'max5pourcent': max5percent}
 
@@ -46,9 +47,9 @@ class APrioriClassifier(ut.AbstractClassifier):
         d['Precision'] = d['VP'] / (d['VP'] + d['FP'])
         d['Rappel'] = d['VP'] / (d['VP'] + d['FN'])
         return d
+
+
 # Question 3
-
-
 def reduce_update(dico, oth):
     for k in oth.keys():
         try:
@@ -108,9 +109,9 @@ class MAP2DClassifier(APrioriClassifier):
                        for c, p in self.probabilities[attrs[self.attr]].items()]
         sorted_target_attr = sorted(target_attr, key=lambda x: (x[1], -x[0]))
         return sorted_target_attr[-1][0]
+
+
 # Question 4
-
-
 def memory_size(size):
     kio = 2**10
     d = {'go': 0, 'mo': 0, 'ko': 0}
@@ -157,9 +158,8 @@ def nbParamsIndep(data, attr=None):
     memory_size *= 8
     print(len(attributs), " variable(s) : ", memory_size, " octets")
 
+
 # Question 5
-
-
 def drawNaiveBayes(df, attr):
     s = ""
     for k in df.keys():
@@ -184,59 +184,61 @@ def nbParamsNaiveBayes(df, attr, list_attr=None):
     print_size(size, d, o, attributs)
 
 
-def ml_params(df):
+def params(df, P2D):
     d = {}
     col_names = df.columns.values
-    return {k: P2D_l(df, k) for k in col_names if k != 'target'}
+    return {k: P2D(df, k) for k in col_names if k != 'target' and k != 'Index'}
 
 
 class MLNaiveBayesClassifier(APrioriClassifier):
     def __init__(self, df):
-        self.params = ml_params(df)
+        self.params = params(df, P2D_l)
+        self.classes = df['target'].unique()
 
     def estimProbas(self, data):
-        target_0 = 1
-        target_1 = 1
-        # TODO: update w/ reduce
-        for k in self.params.keys():
-            if(k != 'target' and k != 'Index'):
-                if(data[k] in self.params[k][0].keys()):
-                    target_0 *= self.params[k][0][data[k]]
-                else:
-                    target_0 = 0
-                if(data[k] in self.params[k][1].keys()):
-                    target_1 *= self.params[k][1][data[k]]
-                else:
-                    target_1 = 0
-        d = {0: target_0, 1: target_1}
-        # print(d)
-        return d
+        def coefficients(value):
+            return [lh[value][data[attr]] if data[attr] in lh[value] else 0
+                    for attr, lh in self.params.items()]
+
+        dico = {c: reduce(lambda x, y: x * y, coefficients(c))
+                for c in self.classes}
+        return dico
 
     def estimClass(self, data):
-        d = self.estimProbas(data)
-        if(d[0] >= d[1]):
-            return 0
-        return 1
+        dico = self.estimProbas(data)
+        estimates = sorted(dico.items())
+        return max(estimates, key=lambda x: x[1])[0]
 
 
 class MAPNaiveBayesClassifier(APrioriClassifier):
     def __init__(self, df):
-        self.params = params(df)
-        self.estimation = getPrior(df)['estimation']
+        self.params = params(df, P2D_p)
+        self.classes = df['target'].unique()
+        self.exp = len(self.params) - 1
+        self.priors = {c: getPrior(df, class_value=c)[if () else 0)
+            'estimation'] ** self.exp for c in self.classes}
 
     def estimProbas(self, data):
-        # TODO
-        pass
+        def coefficients(value):
+            return [ap[data[attr]][value] if data[attr] in ap and value in ap[data[attr]] else 0
+                    for attr, ap in self.params.items()]
+
+        dico = {c: reduce(lambda x, y: x * y, coefficients(c)) / self.priors[c]
+                for c in self.classes}
+        return MAPNaiveBayesClassifier.normaliseDico(dico)
+
+    @classmethod
+    def normaliseDico(cls, dico):
+        proba = sum(dico.values())
+        return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
 
     def estimClass(self, data):
-        d = self.estimProbas(data)
-        if(d[0] >= d[1]):
-            return 0
-        return 1
+        dico = self.estimProbas(data)
+        estimates = sorted(dico.items())
+        return max(estimates, key=lambda x: x[1])[0]
+
 
 # Question 6
-
-
 def isIndepFromTarget(df, attr, x):
     attr_values = df[attr].unique()
     dico = np.zeros((len(attr_values), 2))
