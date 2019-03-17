@@ -5,7 +5,7 @@ from functools import reduce
 
 import numpy as np
 import scipy
-
+import matplotlib.pyplot as plt
 import utils as ut
 
 
@@ -284,3 +284,13 @@ class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
         for k in self.params:
             s += " " + k
         return ut.drawGraph('target' + "->{" + s + "}")
+
+def mapClassifiers(dico, train):
+    precision = [v.statsOnDF(train)['Precision'] for k, v in dico.items()]
+    recall = [v.statsOnDF(train)['Rappel'] for k, v in dico.items()]
+    labels =  dico.keys()
+    fig, ax = plt.subplots()
+    ax.scatter(precision, recall,c="red", marker = "x")
+    for i, l in enumerate(labels):
+        ax.annotate(l, (precision[i], recall[i]))
+    plt.show()
