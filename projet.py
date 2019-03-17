@@ -238,7 +238,31 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
         dico = self.estimProbas(data)
         estimates = sorted(dico.items())
         return max(estimates, key=lambda x: x[1])[0]
+"""class MAPNaiveBayesClassifier(APrioriClassifier):
+        def __init__(self, df):
+            self.params = params(df, P2D_l)
+            self.estimates = getPrior(df)['estimation']
+        def estimProbas(self, data):
+            class0 = 1
+            class1 = 1
+            for attr, ap in self.params.items():
+                if(data[attr] in self.params[attr][0].keys()):
+                    class0 *= self.params[attr][0][data[attr]]
+                else :
+                    class0 = 0
+                if(data[attr] in self.params[attr][1].keys()):
+                    class1 *= self.params[attr][1][data[attr]]
+                else :
+                    class1 = 0
 
+                if(class0 + class1 != 0):
+                    cl_0 = class0 * (1 - self.estimates) / (class1 * self.estimates + class0 * (1 - self.estimates))
+                    cl_1 = class1 *  self.estimates / (class1 * self.estimates + class0 * (1 - self.estimates))
+                else:
+                    cl_0 = 0
+                    cl_1 = 0
+                dico = {0: cl_0, 1: cl_1}
+                return dico"""
 
 # Question 6
 def isIndepFromTarget(df, attr, x):
