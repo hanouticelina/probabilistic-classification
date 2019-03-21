@@ -3,9 +3,10 @@
 
 from functools import reduce
 
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt
+
 import utils as ut
 
 
@@ -13,8 +14,8 @@ import utils as ut
 def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values
-                             == class_value]) / len(target_values)
+    freq = len(target_values[target_values ==
+                             class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -238,33 +239,10 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
         dico = self.estimProbas(data)
         estimates = sorted(dico.items())
         return max(estimates, key=lambda x: x[1])[0]
-"""class MAPNaiveBayesClassifier(APrioriClassifier):
-        def __init__(self, df):
-            self.params = params(df, P2D_l)
-            self.estimates = getPrior(df)['estimation']
-        def estimProbas(self, data):
-            class0 = 1
-            class1 = 1
-            for attr, ap in self.params.items():
-                if(data[attr] in self.params[attr][0].keys()):
-                    class0 *= self.params[attr][0][data[attr]]
-                else :
-                    class0 = 0
-                if(data[attr] in self.params[attr][1].keys()):
-                    class1 *= self.params[attr][1][data[attr]]
-                else :
-                    class1 = 0
-
-                if(class0 + class1 != 0):
-                    cl_0 = class0 * (1 - self.estimates) / (class1 * self.estimates + class0 * (1 - self.estimates))
-                    cl_1 = class1 *  self.estimates / (class1 * self.estimates + class0 * (1 - self.estimates))
-                else:
-                    cl_0 = 0
-                    cl_1 = 0
-                dico = {0: cl_0, 1: cl_1}
-                return dico"""
 
 # Question 6
+
+
 def isIndepFromTarget(df, attr, x):
     attr_values = df[attr].unique()
     dico = np.zeros((len(attr_values), 2))
@@ -309,12 +287,13 @@ class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
             s += " " + k
         return ut.drawGraph('target' + "->{" + s + "}")
 
+
 def mapClassifiers(dico, train):
     precision = [v.statsOnDF(train)['Precision'] for k, v in dico.items()]
     recall = [v.statsOnDF(train)['Rappel'] for k, v in dico.items()]
-    labels =  dico.keys()
+    labels = dico.keys()
     fig, ax = plt.subplots()
-    ax.scatter(precision, recall,c="red", marker = "x")
+    ax.scatter(precision, recall, c="red", marker="x")
     for i, l in enumerate(labels):
         ax.annotate(l, (precision[i], recall[i]))
     plt.show()
