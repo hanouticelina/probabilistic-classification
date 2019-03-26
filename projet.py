@@ -215,23 +215,26 @@ class MLNaiveBayesClassifier(APrioriClassifier):
 
 class MAPNaiveBayesClassifier(APrioriClassifier):
     def __init__(self, df):
-        self.params = params(df, P2D_p)
+        self.params = params(df, P2D_l)  # params(df, P2D_p)
         self.classes = df['target'].unique()
-        self.exp = len(self.params) - 1
+        # self.exp = len(self.params) - 1
         self.priors = {c: getPrior(df, class_value=c)[
-            'estimation'] ** self.exp for c in self.classes}
+            'estimation'] for c in self.classes}
 
     def estimProbas(self, data):
         def coefficients(value):
-            return [ap[data[attr]][value] if data[attr] in ap and value in ap[data[attr]] else 0
-                    for attr, ap in self.params.items()]
+            # return [ap[data[attr]][value] if data[attr] in ap and value in ap[data[attr]] else 0
+            #         for attr, ap in self.params.items()]
+            return [lh[value][data[attr]] if data[attr] in lh[value] else 0
+                    for attr, lh in self.params.items()]
 
-        dico = {c: reduce(lambda x, y: x * y, coefficients(c)) / self.priors[c]
+        dico = {c: self.priors[c] * reduce(lambda x, y: x * y, coefficients(c))
                 for c in self.classes}
         return MAPNaiveBayesClassifier.normaliseDico(dico)
 
     @classmethod
     def normaliseDico(cls, dico):
+        # C'est une distribution de probabilité => normalisation nécessaire
         proba = sum(dico.values())
         return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
 
@@ -297,3 +300,8 @@ def mapClassifiers(dico, train):
     for i, l in enumerate(labels):
         ax.annotate(l, (precision[i], recall[i]))
     plt.show()
+
+
+def MutualInformation(df, x, y):
+
+    return 0
