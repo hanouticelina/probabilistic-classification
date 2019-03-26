@@ -14,8 +14,8 @@ import utils as ut
 def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values
-                             == class_value]) / len(target_values)
+    freq = len(target_values[target_values ==
+                             class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -317,19 +317,92 @@ def getJoint(df, attrs):
 def MutualInformation(df, x, y):
     prior_x = getPriorAttribute(df, x)  # P(x)
     prior_y = getPriorAttribute(df, y)  # P(y)
-    joint = getJoint(df, [x, y])  # P(x, y)
+    joint = getJoint(df, [x, y])        # P(x, y)
     probas_quotient = (joint / prior_x) / prior_y
     log_probas = probas_quotient.apply(np.log2)  # log2(_)
     result = joint * log_probas
     return result.sum()
 
 
+def divide(num, den):
+    """Divides the first argument by the second.
+
+    Parameters
+    ----------
+    num : pandas.Series
+        The numerator whose index length is greater than 2.
+    den : pandas.Series
+        The denominator whose index length is 2.
+
+    Returns
+    -------
+    pandas.Series
+        The quotient of the two Series.
+
+    Notes
+    -----
+    The index of the denominator must be a subset of that of the numerator.
+    Plus, the two Series must have the same index level.
+    """
+    for x in den.index.levels[0]:
+        num[x] = num[x] / den[x]
+    return num
+
+
 def ConditionalMutualInformation(df, x, y, z):
-    prior_z = getPriorAttribute(df, z)  # P(z)
-    joint_x_y_z = getJoint(df, [x, y, z])  # P(x, y, z)
-    joint_x_z = getJoint(df, [x, z])  # P(x, z)
-    joint_y_z = getJoint(df, [y, z])  # P(y, z)
-    probas_quotient = ((joint_x_y_z * prior_z) / joint_x_z) / joint_y_z
+    prior_z = getPriorAttribute(df, z)      # P(z)
+    joint_z_x_y = getJoint(df, [z, x, y])   # P(z, x, y)
+    joint_z_x = getJoint(df, [z, x])        # P(z, x)
+    joint_z_y = getJoint(df, [z, y])        # P(z, y)
+    probas_quotient = joint_z_x_y * prior_z
+    probas_quotient = divide(probas_quotient, joint_z_x)
+    probas_quotient = divide(probas_quotient, joint_z_y)
     log_probas = probas_quotient.apply(np.log2)  # log2(_)
-    result = joint_x_y_z * log_probas
+    result = joint_z_x_y * log_probas
     return result.sum()
+
+
+def MeanForSymetricWeights(matrix):
+    size = np.sqrt(matrix.size)
+    size *= size - 1
+    return matrix.sum() / size
+
+
+def SimplifyConditionalMutualInformationMatrix(matrix):
+    mean = MeanForSymetricWeights(matrix)
+    matrix[...] = np.where(matrix < mean, 0, matrix)
+
+
+def Kruskal(df, matrix):  # TODO: il y a deux arêtes qui ne devraient pas? apparaître => vérifier `cmis`
+    def union(f_i, f_j, d, i, j):
+        nonlocal _set, arcs
+        if depth(f_i) <= depth(f_j):
+            _set[f_i] = f_j, depth(f_i)
+            if depth(f_i) == depth(f_j):
+                _set[f_j] = f_j, (depth(f_j) + 1)
+        else:
+            _set[f_j] = f_i, depth(f_j)
+
+    def find(i):
+        while i != _set[i][0]:
+            i = _set[i][0]
+        return i
+
+    def depth(i):
+        return _set[i][1]
+
+    keys = df.keys()
+    pairs = [(i, j, matrix[i][j]) for i in range(matrix.shape[0])
+             for j in range(i + 1, matrix.shape[1]) if matrix[i][j] > 0.]
+    pairs.sort(key=lambda x: -x[2])
+    arcs = []
+    _set = [(i, 1) for i in range(len(matrix))]  # parent, depth
+    for i, j, d in pairs:
+        f_i = find(i)
+        f_j = find(j)
+        if f_i != f_j:
+            # print(i, j)
+            # print(_set, f_i, f_j)
+            union(f_i, f_j, d, i, j)
+            arcs.append((keys[i], keys[j], d))
+    return arcs
