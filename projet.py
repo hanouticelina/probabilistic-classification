@@ -14,8 +14,8 @@ import utils as ut
 def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values ==
-                             class_value]) / len(target_values)
+    freq = len(target_values[target_values
+                             == class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -302,6 +302,34 @@ def mapClassifiers(dico, train):
     plt.show()
 
 
-def MutualInformation(df, x, y):
+def getPriorAttribute(df, attr):
+    total = len(df)
+    probas = df.groupby([attr])[attr].count() / total
+    return probas
 
-    return 0
+
+def getJoint(df, attrs):
+    freqs = df.groupby(attrs)[attrs[0]].count()
+    total = freqs.sum()
+    return freqs / total
+
+
+def MutualInformation(df, x, y):
+    prior_x = getPriorAttribute(df, x)  # P(x)
+    prior_y = getPriorAttribute(df, y)  # P(y)
+    joint = getJoint(df, [x, y])  # P(x, y)
+    probas_quotient = (joint / prior_x) / prior_y
+    log_probas = probas_quotient.apply(np.log2)  # log2(_)
+    result = joint * log_probas
+    return result.sum()
+
+
+def ConditionalMutualInformation(df, x, y, z):
+    prior_z = getPriorAttribute(df, z)  # P(z)
+    joint_x_y_z = getJoint(df, [x, y, z])  # P(x, y, z)
+    joint_x_z = getJoint(df, [x, z])  # P(x, z)
+    joint_y_z = getJoint(df, [y, z])  # P(y, z)
+    probas_quotient = ((joint_x_y_z * prior_z) / joint_x_z) / joint_y_z
+    log_probas = probas_quotient.apply(np.log2)  # log2(_)
+    result = joint_x_y_z * log_probas
+    return result.sum()
