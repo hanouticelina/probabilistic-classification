@@ -14,8 +14,8 @@ import utils as ut
 def getPrior(df, class_value=1):
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values ==
-                             class_value]) / len(target_values)
+    freq = len(target_values[target_values
+                             == class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -213,6 +213,11 @@ class MLNaiveBayesClassifier(APrioriClassifier):
         return max(estimates, key=lambda x: x[1])[0]
 
 
+def normaliseDico(dico):
+    proba = sum(dico.values())
+    return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
+
+
 class MAPNaiveBayesClassifier(APrioriClassifier):
     def __init__(self, df):
         self.params = params(df, P2D_l)  # params(df, P2D_p)
@@ -230,13 +235,8 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
 
         dico = {c: self.priors[c] * reduce(lambda x, y: x * y, coefficients(c))
                 for c in self.classes}
-        return MAPNaiveBayesClassifier.normaliseDico(dico)
-
-    @classmethod
-    def normaliseDico(cls, dico):
         # C'est une distribution de probabilité => normalisation nécessaire
-        proba = sum(dico.values())
-        return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
+        return normaliseDico(dico)
 
     def estimClass(self, data):
         dico = self.estimProbas(data)
@@ -302,13 +302,13 @@ def mapClassifiers(dico, train):
     plt.show()
 
 
-def getPriorAttribute(df, attr):
+def getPriorAttribute(df, attr):  # P(attr)
     total = len(df)
     probas = df.groupby([attr])[attr].count() / total
     return probas
 
 
-def getJoint(df, attrs):
+def getJoint(df, attrs):  # P(attrs)
     freqs = df.groupby(attrs)[attrs[0]].count()
     total = freqs.sum()
     return freqs / total
@@ -451,14 +451,14 @@ def ConnexSets(arcs):
             return None, None
 
     dico = {}  # dict of hashable: (hashable, set of hashable)
-    _sets = []  # list of (set of hashable)
+    components = []  # list of (set of hashable)
     for x, y, _ in arcs:
         rep_x, set_x = find(x)
         rep_y, set_y = find(y)
         if rep_x is None:  # the representative of `y` absorbs that of `x`
             if rep_y is None:  # if the rep of `y` does not exist yet,
                 set_y = {y}    # `y` is its rep itself
-                _sets.append(set_y)
+                components.append(set_y)
                 dico[y] = (y, set_y)
             set_y.add(x)
             dico[x] = (y, set_y)
@@ -468,59 +468,13 @@ def ConnexSets(arcs):
                 dico[y] = (rep_x, set_x)
             elif rep_x != rep_y:  # do the same if reps are different
                 set_x.update(set_y)
-                _sets.remove(set_y)
+                components.remove(set_y)
                 dico[y] = (rep_x, set_x)
             # do nothing if already in the same component
-    return _sets
+    return components
 
 
-def OrientConnexSets(df, arcs, class_):  # TODO: modify
-    def find_root(set_):
-        nonlocal mutual_info
-        max_val = -1.
-        root = None
-        for attr in set_:
-            if mutual_info[attr] > max_val:
-                max_val = mutual_info[attr]
-                root = attr
-        return root
-
-    components = ConnexSets(arcs)
-    roots = [find_root(compo) for compo in components]
-    mutual_info = {attr: MutualInformation(df, class_, attr)
-                   for attr in df.keys() if attr != class_}
-    endpoint = {attr: False for attr in df.keys() if attr != class_}
-    visited = {attr: False for attr in df.keys() if attr != class_}
-    mutual_info.sort(key=lambda x: x[1])
-    adjacents = adjacent_vertices(arcs)
-    oriented_arcs = []
-    attr, _ = mutual_info.pop()
-    stack = [attr]
-    for _ in range(len(visited)):
-        if stack == []:
-            while visited[mutual_info[len(mutual_info) - 1][0]] is True:
-                mutual_info.pop()
-            stack.append(mutual_info.pop()[0])
-        attr = stack.pop()
-        visited[attr] = True
-        try:
-            for adj in adjacents[attr]:
-                if visited[adj] is True:
-                    continue
-                stack.append(adj)
-                if endpoint[adj] is True:  # only ona input arc per vertex
-                    oriented_arcs.append((adj, attr))
-                else:
-                    endpoint[adj] = True
-                    oriented_arcs.append((attr, adj))
-                # adjacents[adj].remove(attr)
-            # adjacents.pop(attr)
-        except:
-            continue
-    return oriented_arcs
-
-
-def OrientConnexSets(df, arcs, class_):  # working
+def OrientConnexSets(df, arcs, target):  # TODO: modify
     def adjacent_vertices(arcs):
         adjacents = {}
         for x, y, _ in arcs:
@@ -534,10 +488,60 @@ def OrientConnexSets(df, arcs, class_):  # working
                 adjacents[y] = [x]
         return adjacents
 
-    mutual_info = [(attr, MutualInformation(df, class_, attr))
-                   for attr in df.keys() if attr != class_]
-    endpoint = {attr: False for attr in df.keys() if attr != class_}
-    visited = {attr: False for attr in df.keys() if attr != class_}
+    def find_root(component):
+        nonlocal mutual_info
+        max_val = -1.
+        root = None
+        for attr in component:
+            if mutual_info[attr] > max_val:
+                max_val = mutual_info[attr]
+                root = attr
+        return root
+
+    def add_oriented_arcs(component, root):
+        nonlocal adjacents, visited, oriented_arcs
+        stack = [root]
+        while stack != []:
+            attr = stack.pop()
+            visited[attr] = True
+            for adj in adjacents[attr]:
+                if visited[adj] is True:
+                    continue
+                stack.append(adj)
+                oriented_arcs.append((attr, adj))
+
+    adjacents = adjacent_vertices(arcs)
+    mutual_info = {attr: MutualInformation(df, target, attr)
+                   for attr in df.keys() if attr != target}
+    components = ConnexSets(arcs)
+    component_and_roots = [(compo, find_root(compo)) for compo in components]
+    # endpoint = {attr: False for attr in df.keys() if attr != target}
+    visited = {attr: False for attr in df.keys() if attr != target}
+    oriented_arcs = []
+    for compo, root in component_and_roots:
+        add_oriented_arcs(compo, root)
+    return oriented_arcs
+
+
+# direct method, i.e. w/o finding roots
+def OrientConnexSets_prev(df, arcs, target):
+    def adjacent_vertices(arcs):
+        adjacents = {}
+        for x, y, _ in arcs:
+            try:
+                adjacents[x].append(y)
+            except:
+                adjacents[x] = [y]
+            try:
+                adjacents[y].append(x)
+            except:
+                adjacents[y] = [x]
+        return adjacents
+
+    mutual_info = [(attr, MutualInformation(df, target, attr))
+                   for attr in df.keys() if attr != target]
+    endpoint = {attr: False for attr in df.keys() if attr != target}
+    visited = {attr: False for attr in df.keys() if attr != target}
     mutual_info.sort(key=lambda x: x[1])
     adjacents = adjacent_vertices(arcs)
     oriented_arcs = []
@@ -567,28 +571,68 @@ def OrientConnexSets(df, arcs, class_):  # working
     return oriented_arcs
 
 
-# TODO: it is only a copy of a previous classifier
+def P2D_l_TAN(df, cond, attr):  # P(attr | cond, 'target')
+    joint_target_cond_attr = getJoint(df, ['target', cond, attr])
+    joint_target_cond = getJoint(df, ['target', cond])
+    raw_dico = dict(divide(joint_target_cond_attr, joint_target_cond))
+    dicos = [{(k_t, k_c): {k_a: raw_dico[k_t, k_c, k_a]}}
+             for k_t, k_c, k_a in raw_dico.keys()]
+    res = {}
+    reduce(reduce_update, [res] + dicos)
+    return res
+
+
 class MAPTANClassifier(APrioriClassifier):
     def __init__(self, df):
-        self.params = params(df, P2D_l)  # params(df, P2D_p)
+        self._init_arcs(df)
+        self.single_params = params(df, P2D_l)
+        self.double_params = {}
+        # print(self.params)
+        self._update_params(df)
         self.classes = df['target'].unique()
-        # self.exp = len(self.params) - 1
         self.priors = {c: getPrior(df, class_value=c)[
             'estimation'] for c in self.classes}
 
+    def _init_arcs(self, df):
+        matrix = np.array([[0 if x == y else ConditionalMutualInformation(df, x, y, 'target')
+                            for x in df.keys() if x != 'target']
+                           for y in df.keys() if y != 'target'])
+        SimplifyConditionalMutualInformationMatrix(matrix)  # side-effect
+        liste_test = [('trestbps', 'chol', 0.6814942282235203),
+                      ('age', 'trestbps', 0.641718295908513),
+                      ('age', 'thalach', 0.6365766485465845),
+                      ('chol', 'oldpeak', 0.5246930555244587),
+                      ('oldpeak', 'slope', 0.25839871090530614),
+                      ('chol', 'ca', 0.2528327956181666)]
+        # liste_test = Kruskal(df, matrix)
+        self.oriented_arcs = OrientConnexSets(
+            df, liste_test, 'target')
+
+    def _update_params(self, df):
+        for tail, head in self.oriented_arcs:
+            self.single_params.pop(head)
+            self.double_params[head, tail] = P2D_l_TAN(df, tail, head)
+
     def estimProbas(self, data):
         def coefficients(value):
-            # return [ap[data[attr]][value] if data[attr] in ap and value in ap[data[attr]] else 0
-            #         for attr, ap in self.params.items()]
-            return [lh[value][data[attr]] if data[attr] in lh[value] else 0
-                    for attr, lh in self.params.items()]
+            liste = [lh[value][data[attr]] if data[attr] in lh[value] else 0
+                     for attr, lh in self.single_params.items()]
+            liste += [(tan[value, data[cond]][data[attr]] if data[attr] in tan[value, data[cond]] else 0.)
+                      if (value, data[cond]) in tan else 0.
+                      for (attr, cond), tan in self.double_params.items()]
+            return liste
 
         dico = {c: self.priors[c] * reduce(lambda x, y: x * y, coefficients(c))
                 for c in self.classes}
-        return MAPNaiveBayesClassifier.normaliseDico(dico)
+        return normaliseDico(dico)
 
     def draw(self):
-        s = ""
-        for k in self.params:
-            s += " " + k
-        return ut.drawGraph('target' + "->{" + s + "}")
+        children = ""
+        for attr in self.single_params:
+            children += " " + attr
+        for attr, _ in self.double_params:
+            children += " " + attr
+        arcs = 'target->{' + children + '}'
+        for tail, head in self.oriented_arcs:
+            arcs += ';' + tail + '->' + head
+        return ut.drawGraph(arcs)
