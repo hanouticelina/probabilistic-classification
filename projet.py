@@ -12,30 +12,34 @@ import utils as ut
 
 # Question 1
 def getPrior(df, class_value=1):
-     """Calcule la probabilite a priori de la classe 1 et de l'intervalle de confiance a 95% pour cette probabilité
+    """Calcule la probabilité a priori de la classe donnée et un intervalle
+     de confiance de risque 5 %.
 
 
     Parameters
     ----------
     df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    class_value : int
-        Valeur de la classe pour laquelle on souhaite estimer la probabilité et l'intervalle de confiance à 95%
+        La base d'examples.
+    class_value : int, optional
+        La valeur de la classe en question.
 
 
     Returns
     -------
-    Float
-        estimation : l'estimation de la probabilité a priori de la classe
-    Float
-        min5pourcent : plus petite valeur dans l'intervalle de confiance
-    Float
-        max5pourcent : plus grande valeur dans l'intervalle de confiance
+    dict of str: float
+        L'estimation de la probabilité a priori de la classe, ainsi qu'un
+        intervalle de confiance de risque 5 %.
+
+    Notes
+    -----
+    Les données sont repérées par les clefs `"estimation"`, `"min5pourcent"` et
+    `"max5pourcent"`.
+
     """
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values ==
-                             class_value]) / len(target_values)
+    freq = len(target_values[target_values
+                             == class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -46,68 +50,129 @@ def getPrior(df, class_value=1):
 
 # Question 2
 class APrioriClassifier(ut.AbstractClassifier):
-    """
-    classe qui représente un classifier à priori et estime  naivement la classe de chaque individu pour la classe majoritaire ( et donc la classe 1)
+    """Un classifieur attribuant la classe majoritaire à chaque example.
     """
 
     def estimClass(self, attrs):
-            """
-            renvoie l'estimation de la classe pour un individu
+        """Estime la classe d'un individu donné.
 
-            Parameters
-            -----
-            attrs : dict
-                dictionnaire des attributs de l'individu
-            Returns
-            -----
-                1 : l'estimation a priori de la classe de l'individu
-            """
+        Parameters
+        ----------
+        attrs : dict of str: int
+            La table d'association contenant la valeur pour chaque nom d'attribut
+            de l'individu.
+
+        Returns
+        -------
+        int
+            La classe estimée de l'individu.
+
+        """
         return 1
 
     def statsOnDF(self, df):
-            """
-            renvoie un dictionnaire contenant les valeurs VP, VN, FN, FP ainsi que le rappel et la précision
+        """Calcule des statistiques sur la base donnée.
 
-            Parameters
-            -----
-            df : pandas.DataFrame
-                dataframe contenant les données issues de la base initiale
-            Returns
-            -----
-                Dictionnaire contenant:
-                VP :  nombre d'individus avec target=1 et classe prévue=1
-                VN :  nombre d'individus avec target=0 et classe prévue=0
-                FP :  nombre d'individus avec target=0 et classe prévue=1
-                FN :  nombre d'individus avec target=1 et classe prévue=0
-                Precision : proportion d'identifications positives correcte
-                Rappel : proportion de résultats positifs réels identifiée correctement
-            Notes
-            ------
-            pandas.DataFrame.itertuples :
+        Les statistiques considérées dans cette méthode sont le rappel, la
+        précision et le nombre d'examples de chaque classe qui ont été bien ou
+        mal classés.
 
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            La base d'examples dont on veut les statistiques.
 
-            """
-        d = {'VP': 0, 'VN': 0, 'FP': 0, 'FN': 0, 'Precision': 0, 'Rappel': 0}
-        for t in df.itertuples():
-            dic = t._asdict()
-            e = self.estimClass(dic)
-            if(dic['target'] == 1):
-                if(e == 1):
-                    d['VP'] += 1
+        Returns
+        -------
+        stats : dict of str: int
+            Des statistiques sur la base d'examples donnée.
+
+        Notes
+        -----
+        Les statistiques sont repérées par les clefs
+            `"VP"` : le nombre d'individus de classe 1 bien classés,
+            `"VN"` : le nombre d'individus de classe 0 bien classés,
+            `"FP"` : le nombre d'individus de classe 0 mal classés,
+            `"FN"` : le nombre d'individus de classe 1 mal classés,
+            `"precision"` : la proportion d'identifications positives correctes,
+            `"rappel"` : le proportion d'examples positifs correctement classés.
+
+        """
+        stats = {'VP': 0, 'VN': 0, 'FP': 0,
+                 'FN': 0, 'Precision': 0, 'Rappel': 0}
+        for ex in df.itertuples():
+            example = ex._asdict()
+            estimate = self.estimClass(example)
+            if example['target'] == 1:
+                if estimate == 1:
+                    stats['VP'] += 1
                 else:
-                    d['FN'] += 1
+                    stats['FN'] += 1
             else:
-                if(e == 1):
-                    d['FP'] += 1
+                if estimate == 1:
+                    stats['FP'] += 1
                 else:
-                    d['VN'] += 1
-        d['Precision'] = d['VP'] / (d['VP'] + d['FP'])
-        d['Rappel'] = d['VP'] / (d['VP'] + d['FN'])
-        return d
+                    stats['VN'] += 1
+        stats['Precision'] = stats['VP'] / (stats['VP'] + stats['FP'])
+        stats['Rappel'] = stats['VP'] / (stats['VP'] + stats['FN'])
+
+        return stats
 
 
 # Question 3
+def getPriorAttribute(df, attr):  # P(attr)
+    """Calcule la distribution de probabilité d'un attribut.
+
+    Parameters
+    ----------
+    attr : str
+        Le nom de l'attribut en question.
+
+    Returns
+    -------
+    pandas.Series
+        La distribution de probabilité de l'attribut.
+
+    """
+    freqs = df.groupby([attr])[attr].count()
+    total = len(df)
+    return freqs / total
+
+
+def getJoint(df, attrs):  # P(attrs)
+    """Calcule la distribution de probabilité jointe de plusieurs attributs.
+
+    Parameters
+    ----------
+    attrs : list of str
+        Les noms de l'ensemble d'attributs en question.
+
+    Returns
+    -------
+    probas : pandas.Series
+        La distribution de probabilité jointe des attributs.
+
+    """
+    freqs = df.groupby(attrs)[attrs[0]].count()
+    total = len(df)
+    return freqs / total
+
+
 def reduce_update(dico, oth):
+    """Rajoute les dictionnaires du deuxième argument dans le premier argument.
+
+    Parameters
+    ----------
+    dico : dict of number:(dict of number:float)
+        Le dictionnaire à mettre à jour.
+    oth : dict of number:(dict of number:float)
+        Le dictionnaire avec les données à transmettre.
+
+    Returns
+    -------
+    dico : dict of number:(dict of number:float)
+        Le dictionnaire mis à jour.
+    """
     for k in oth.keys():
         try:
             dico[k].update(oth[k])
@@ -117,26 +182,25 @@ def reduce_update(dico, oth):
 
 
 def P2D_l(df, attr):
-    """
-    Calcule la probabilité 𝑃(𝑎𝑡𝑡𝑟|𝑡𝑎𝑟𝑔𝑒𝑡)
+    """Calcule la probabilité d'un attribut sachant la classe.
 
     Parameters
-    -----
-    attrs : dict
-        dictionnaire des attributs de l'individu
+    ----------
     df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
+        La base d'examples.
+    attr : str
+        Le nom de l'attribut en question.
+
     Returns
-    -----
-        Dictionnaire associant à chaque valeur t de target un dictionnaire qui associe à chaque attribut a la probabilité 𝑃(𝑎𝑡𝑡𝑟=𝑎|𝑡𝑎𝑟𝑔𝑒𝑡=𝑡).
-    Notes
-    -----
+    -------
+    dict of int: (dict of number: float)
+        Un dictionnaire associant à la classe `t` un dictionnaire qui associe à
+        la valeur `a` de l'attribut la probabilité
+        .. math:: P(attr=a|target=t).
 
     """
-    attr_values = df[attr].unique()
-    target_attr = df.groupby(['target', attr])['target'].count()
-    target = df.groupby(['target'])['target'].count()
-    raw_dico = dict(target_attr / target)
+    raw_dico = dict(getJoint(df, ['target', attr])
+                    / getPriorAttribute(df, 'target'))
     dicos = [{k_t: {k_a: raw_dico[k_t, k_a]}} for k_t, k_a in raw_dico.keys()]
     res = {}
     reduce(reduce_update, [res] + dicos)
@@ -144,26 +208,25 @@ def P2D_l(df, attr):
 
 
 def P2D_p(df, attr):
-    """
-    Calcule la probabilité 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟)
+    """Calcule la probabilité de la classe sachant un attribut.
 
     Parameters
-    -----
-    attrs : dict
-        dictionnaire des attributs de l'individu
+    ----------
     df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    Returns
-    -----
-        Dictionnaire associant à chaque valeur a des attributs un dictionnaire qui associe à chaque valeur de target a la probabilité 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟).
-    Notes
-    -----
+        La base d'examples.
+    attr : str
+        Le nom de l'attribut en question.
 
-        """
-    attr_values = df[attr].unique()
-    target_attr = df.groupby([attr, 'target'])['target'].count()
-    attr = df.groupby([attr])[attr].count()
-    raw_dico = dict(target_attr / attr)
+    Returns
+    -------
+    dict of number: (dict of int: float)
+        Un dictionnaire associant à la valeur `a` de l'attribut un dictionnaire
+        qui associe à la classe `t` la probabilité
+        .. math:: P(target=t|attr=t).
+
+    """
+    raw_dico = dict(getJoint(df, [attr, 'target']
+                             ) / getPriorAttribute(df, attr))
     dicos = [{k_t: {k_a: raw_dico[k_t, k_a]}} for k_t, k_a in raw_dico.keys()]
     res = {}
     reduce(reduce_update, [res] + dicos)
@@ -171,76 +234,78 @@ def P2D_p(df, attr):
 
 
 class ML2DClassifier(APrioriClassifier):
-    """
-    Classe qui représente un classifieur basée sur le principe du maximum de vraisemblance (Maximum likelihood)
+    """Un classifieur basé sur le maximum de vraisemblance.
 
-    Attributs
-    -----
-    df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    attr : string
-        attribut observé
-    likelihoods : dict
-        dictionnaire contenant la vraisemblance d'observer attr pour chacune des valeurs prises par target
+    Parameters
+    ----------
+    attr : str
+        Le nom de l'attribut observé.
+    likelihoods : dict of int: (dict of number: float)
+        La vraisemblance d'observer une valeur de l'attribut pour chacune des
+        valeurs de la classe.
 
     """
+
     def __init__(self, df, attr):
         APrioriClassifier.__init__(self)
-        self.df = df
         self.attr = attr
         self.likelihoods = P2D_l(df, attr)
 
     def estimClass(self, attrs):
-        """
-        renvoie l'estimation de la classe pour un individu
+        """Estime la classe d'un individu donné.
 
         Parameters
-        -----
-        attrs : dict
-            dictionnaire des attributs de l'individu
+        ----------
+        attrs : dict of str: int
+            La table d'association contenant la valeur pour chaque nom d'attribut
+            de l'individu.
+
         Returns
-        -----
+        -------
         int
-            Position du maximum trouvé dans la table likelihoods
+            La classe qui maximise la vraisemblance de l'attribut de l'individu.
+
         """
-        target_attr = [(c, self.likelihoods[c][attrs[self.attr]])
-                       for c in self.likelihoods.keys()]
-        sorted_target_attr = sorted(target_attr, key=lambda x: (x[1], -x[0]))
-        return sorted_target_attr[-1][0]
+        target_likelihood = [(c, self.likelihoods[c][attrs[self.attr]])
+                             for c in self.likelihoods.keys()]
+        sorted_target_likelihood = sorted(
+            target_likelihood, key=lambda x: (x[1], -x[0]))
+        return sorted_target_likelihood[-1][0]
 
 
 class MAP2DClassifier(APrioriClassifier):
-    """
-    Classe qui représente un classifieur basée sur le principe du maximum a Posteriori
+    """Un classifieur basée sur le maximum a posteriori.
 
-    Attributs
-    -----
-    df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    attr : string
-        attribut observé
-    probabilities : dict
-        dictionnaire contenant la distribution a posteriori de target après avoir observé attr
+    Parameters
+    ----------
+    attr : str
+        Le nom de l'attribut observé.
+    probabilities : dict of number: (dict of int: float)
+        La distribution a posteriori des classes après avoir observé chacune des
+        valeurs de l'attribut.
+
     """
 
     def __init__(self, df, attr):
         APrioriClassifier.__init__(self)
-        self.df = df
         self.attr = attr
         self.probabilities = P2D_p(df, attr)
 
     def estimClass(self, attrs):
-        """
-        renvoie l'estimation de la classe pour un individu
+        """Estime la classe d'un individu donné.
 
         Parameters
-        -----
-        attrs : dict
-            dictionnaire des attributs de l'individu
+        ----------
+        attrs : dict of str: int
+            La table d'association contenant la valeur pour chaque nom d'attribut
+            de l'individu.
+
         Returns
-        -----
+        -------
         int
-            Position du maximum trouvé dans la table probabilities
+            La classe de plus grande probabilité sachant la valeur prise par
+            l'attribut.
+
         """
         target_attr = [(c, p)
                        for c, p in self.probabilities[attrs[self.attr]].items()]
@@ -250,18 +315,23 @@ class MAP2DClassifier(APrioriClassifier):
 
 # Question 4
 def memory_size(size):
-    """
-    Calcule la taille en mémoire d'un ensemble de tables etant donnée leurs cardinalités
+    """Calcule la taille en mémoire d'un ensemble de tables etant donnée leurs
+    cardinalités.
+
     Parameters
-    -----
+    ----------
     size : int
-        Cardinalité des tables pour lesquelles on souhaite calculer la taille en mémoire
+        Cardinalité des tables pour lesquelles on souhaite calculer la taille
+        en mémoire.
+
     Returns
-    -----
+    -------
     d : dict
-        dictionnaire repésentant la taille en mémoire des tables en kilooctets, megaoctets et gigaoctets
+        dictionnaire repésentant la taille en mémoire des tables en kilooctets,
+        megaoctets et gigaoctets.
     o : int
-        taille en mémoire des tables en octets
+        taille en mémoire des tables en octets.
+
     """
     kio = 2**10
     d = {'go': 0, 'mo': 0, 'ko': 0}
@@ -273,21 +343,22 @@ def memory_size(size):
 
 
 def print_size(size, d, o, attributs):
-    """
-    Affiche le dictionnaire representant la taille en mémoire des tables 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘)
+    """Affiche le dictionnaire representant la taille en mémoire des tables
+    𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘).
+
     Parameters
-    -----
+    ----------
     size : int
-        Cardinalité des tables pour lesquelles on souhaite calculer la taille en mémoire
+        Cardinalité des tables pour lesquelles on souhaite calculer la taille
+        en mémoire.
     d : dict
-        dictionnaire repésentant la taille en mémoire des tables en kilooctets, megaoctets et gigaoctets
+        dictionnaire repésentant la taille en mémoire des tables en kilooctets,
+        megaoctets et gigaoctets.
     o : int
-        taille en mémoire des tables en octets
+        taille en mémoire des tables en octets.
     attributs : list
-        liste des attributs necessaire pour construire la prédiction de target
-    Returns
-    -----
-    Affiche le dictionnaire de la taille memoire des tables
+        liste des attributs necessaire pour construire la prédiction de target.
+
     """
     s = ""
     for key, value in d.items():
@@ -299,20 +370,19 @@ def print_size(size, d, o, attributs):
 
 
 def nbParams(data, attr=None):
-    """
-    Calcule la taille en mémoire des tables 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘)
+    """Calcule et affiche la taille en mémoire des tables 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘).
+
     Parameters
-    -----
+    ----------
     data : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
+        dataframe contenant les données issues de la base initiale.
     attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK']
-    Returns
-    -----
-        Affiche la taille en mémoire des tables 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘)
+        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
+
     Notes
     -----
-    Ici , un float est représenté sur 8 octets
+    On a considéré qu'un float est représenté sur 8 octets.
+
     """
     size = 1
     if attr is None:
@@ -328,17 +398,15 @@ def nbParams(data, attr=None):
 
 
 def nbParamsIndep(data, attr=None):
-    """
-    Calcule la taille en mémoire nécessaire pour représenter les tables et en supposant l'indépendance des variables
+    """Calcule et affiche la taille en mémoire nécessaire pour représenter les
+    tables et en supposant l'indépendance des variables.
+
     Parameters
-    -----
+    ----------
     data : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
+        dataframe contenant les données issues de la base initiale.
     attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK']
-    Returns
-    -----
-        Affiche la taille en mémoire des tables
+        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
 
     """
     memory_size = 0
@@ -355,16 +423,17 @@ def nbParamsIndep(data, attr=None):
 
 # Question 5
 def drawNaiveBayes(df, attr):
-    """
-    Dessine le graphe representant un modèle naive bayes
+    """Dessine le graphe representant un modèle naive bayes.
+
     Parameters
-    -----
+    ----------
     df: pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    attr : string
-        nom de la colonne qui représente la classe
+        dataframe contenant les données issues de la base initiale.
+    attr : str
+        nom de la colonne qui représente la classe.
+
     Returns
-    -----
+    -------
         Graphe du modèle naive bayes
     """
     s = ""
@@ -375,20 +444,17 @@ def drawNaiveBayes(df, attr):
 
 
 def nbParamsNaiveBayes(df, attr, list_attr=None):
-    """
-    Calcule la taille en mémoire nécessaire pour représenter les tables et en supposant l'indépendance des variables
-    Parameters
-    -----
-    df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale
-    attr : string
-        nom de la colonne qui représente la classe
-    list_attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK']
+    """Calcule et affiche la taille en mémoire nécessaire pour représenter les
+    tables et en supposant l'indépendance des variables.
 
-    Returns
-    -----
-        Affiche la taille en mémoire des tables
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        dataframe contenant les données issues de la base initiale.
+    attr : str
+        nom de la colonne qui représente la classe.
+    list_attr : list
+        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
 
     """
     facteur = (len(df[attr].unique()))
@@ -406,43 +472,46 @@ def nbParamsNaiveBayes(df, attr, list_attr=None):
     print_size(size, d, o, attributs)
 
 
-def params(df, P2D):
-
-    d = {}
-    col_names = df.columns.values
-    return {k: P2D(df, k) for k in col_names if k != 'target' and k != 'Index'}
+def params(df, P2D):  # TODO: doc
+    """
+    """
+    return {attr: P2D(df, attr) for attr in df.keys() if attr != 'target'}
 
 
 class MLNaiveBayesClassifier(APrioriClassifier):
-    """
-    Classe qui représente un classifieur basée sur le principe du maximum de vraisemblance et qui utilise l'hypothèse du Naive Bayes
-    Attributs
-    -----
+    """Un classifieur basée sur le maximum de vraisemblance et supposant
+    l'indépendance contionnelle sachant la classe entre toute paire d'attributs.
+
+    Parameters
+    ----------
     params: dict
-        dictionnaire contenant les vraisemblances d'observer chaque attribut sachant les valeurs prises par target
+        dictionnaire contenant les vraisemblances d'observer chaque attribut
+        sachant les valeurs prises par target.
 
     classes: numpy.array
-        array numpy contenant les valeurs prises par target (les classes)
+        array numpy contenant les valeurs prises par target (les classes).
 
     """
+
     def __init__(self, df):
         self.params = params(df, P2D_l)
         self.classes = df['target'].unique()
 
     def estimProbas(self, data):
-        """
-        Calcule la vraisemblance
+        """Calcule la vraisemblance.
+
         Parameters
-        -----
+        ----------
         data: pandas.DataFrame
-            dataframe contenant les données issues de la base initiale
+            dataframe contenant les données issues de la base initiale.
+
         Returns
-        -----
+        -------
         dict
-            Dictionnaire contenant la vraisemblance d'observer les attributs d'un individu pour chacune des valeurs prises par target
+            Dictionnaire contenant la vraisemblance d'observer les attributs
+            d'un individu pour chacune des valeurs prises par target.
         """
         def coefficients(value):
-
             return [lh[value][data[attr]] if data[attr] in lh[value] else 0
                     for attr, lh in self.params.items()]
 
@@ -451,70 +520,74 @@ class MLNaiveBayesClassifier(APrioriClassifier):
         return dico
 
     def estimClass(self, data):
-        """
-        renvoie l'estimation de la classe pour un individu
+        """Estime la classe d'un individu donné.
 
         Parameters
-        -----
-        data: pandas.DataFrame
-            dataframe contenant les données issues de la base initiale
+        ----------
+        attrs : dict of str: int
+            La table d'association contenant la valeur pour chaque nom d'attribut
+            de l'individu.
+
         Returns
-        -----
+        -------
         int
-        Position du maximum trouvé dans la table des probabilités
+            La classe de plus grande probabilité sachant la valeur prise par
+            l'attribut.
+
         """
         dico = self.estimProbas(data)
         estimates = sorted(dico.items())
         return max(estimates, key=lambda x: x[1])[0]
 
 
+def normaliseDico(dico):
+    # C'est une distribution de probabilité => normalisation nécessaire
+    proba = sum(dico.values())
+    return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
+
+
 class MAPNaiveBayesClassifier(APrioriClassifier):
-    """
-    Classe qui représente un classifieur basée sur le principe du maximum a posteriori et qui utilise l'hypothèse du Naive Bayes
-    Attributs
-    -----
+    """Un classifieur basée sur le maximum a posteriori et supposant
+    l'indépendance contionnelle sachant la classe entre toute paire d'attributs.
+
+    Parameters
+    ----------
     params: dict
-        dictionnaire contenant les vraisemblances d'observer chaque attribut sachant les valeurs prises par target
+        dictionnaire contenant les vraisemblances d'observer chaque attribut
+        sachant les valeurs prises par target.
 
     classes: numpy.array
-        array numpy contenant les valeurs prises par target (les classes)
+        array numpy contenant les valeurs prises par target (les classes).
 
     """
+
     def __init__(self, df):
         self.params = params(df, P2D_l)  # params(df, P2D_p)
         self.classes = df['target'].unique()
-        # self.exp = len(self.params) - 1
         self.priors = {c: getPrior(df, class_value=c)[
             'estimation'] for c in self.classes}
 
     def estimProbas(self, data):
-        """
-        Calcule la vraisemblance
+        """Calcule la vraisemblance.
+
         Parameters
-        -----
+        ----------
         data: pandas.DataFrame
-            dataframe contenant les données issues de la base initiale
+            dataframe contenant les données issues de la base initiale.
+
         Returns
-        -----
+        -------
         dict
-            Dictionnaire contenant la vraisemblance d'observer les attributs d'un individu pour chacune des valeurs prises par target
+            Dictionnaire contenant la vraisemblance d'observer les attributs
+            d'un individu pour chacune des valeurs prises par target.
         """
         def coefficients(value):
-            # return [ap[data[attr]][value] if data[attr] in ap and value in ap[data[attr]] else 0
-            #         for attr, ap in self.params.items()]
             return [lh[value][data[attr]] if data[attr] in lh[value] else 0
                     for attr, lh in self.params.items()]
 
         dico = {c: self.priors[c] * reduce(lambda x, y: x * y, coefficients(c))
                 for c in self.classes}
-        return MAPNaiveBayesClassifier.normaliseDico(dico)
-
-    @classmethod
-    def normaliseDico(cls, dico):
-        
-        # C'est une distribution de probabilité => normalisation nécessaire
-        proba = sum(dico.values())
-        return {k: (v / proba if proba > 0. else 1 / len(dico)) for k, v in dico.items()}
+        return normaliseDico(dico)
 
     def estimClass(self, data):
         dico = self.estimProbas(data)
@@ -523,8 +596,6 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
 
 
 # Question 6
-
-
 def isIndepFromTarget(df, attr, x):
     attr_values = df[attr].unique()
     dico = np.zeros((len(attr_values), 2))
@@ -581,19 +652,7 @@ def mapClassifiers(dico, train):
     plt.show()
 
 
-def getPriorAttribute(df, attr):  # P(attr)
-    total = len(df)
-    probas = df.groupby([attr])[attr].count() / total
-    return probas
-
-
-def getJoint(df, attrs):  # P(attrs)
-    freqs = df.groupby(attrs)[attrs[0]].count()
-    total = freqs.sum()
-    return freqs / total
-
-
-def MutualInformation(df, x, y):
+def MutualInformation(df, x, y):  # I(x;y)
     prior_x = getPriorAttribute(df, x)  # P(x)
     prior_y = getPriorAttribute(df, y)  # P(y)
     joint = getJoint(df, [x, y])        # P(x, y)
@@ -628,7 +687,7 @@ def divide(num, den):
     return num
 
 
-def ConditionalMutualInformation(df, x, y, z):
+def ConditionalMutualInformation(df, x, y, z):  # I(x;y|z)
     prior_z = getPriorAttribute(df, z)      # P(z)
     joint_z_x_y = getJoint(df, [z, x, y])   # P(z, x, y)
     joint_z_x = getJoint(df, [z, x])        # P(z, x)
@@ -850,7 +909,7 @@ def OrientConnexSets_prev(df, arcs, target):
     return oriented_arcs
 
 
-def P2D_l_TAN(df, cond, attr):  # P(attr | cond, 'target')
+def P2D_l_TAN(df, cond, attr):  # P(attr | 'target', cond)
     joint_target_cond_attr = getJoint(df, ['target', cond, attr])
     joint_target_cond = getJoint(df, ['target', cond])
     raw_dico = dict(divide(joint_target_cond_attr, joint_target_cond))
@@ -864,13 +923,19 @@ def P2D_l_TAN(df, cond, attr):  # P(attr | cond, 'target')
 class MAPTANClassifier(APrioriClassifier):
     def __init__(self, df):
         self._init_arcs(df)
+        self.df = df
         self.single_params = params(df, P2D_l)
         self.double_params = {}
-        # print(self.params)
         self._update_params(df)
         self.classes = df['target'].unique()
         self.priors = {c: getPrior(df, class_value=c)[
             'estimation'] for c in self.classes}
+        for attr, dico in self.single_params.items():
+            print(attr)
+            print(dico)
+        for (attr, cond), dico in self.double_params.items():
+            print(attr, "|", cond)
+            print(dico)
 
     def _init_arcs(self, df):
         matrix = np.array([[0 if x == y else ConditionalMutualInformation(df, x, y, 'target')
@@ -888,16 +953,16 @@ class MAPTANClassifier(APrioriClassifier):
             df, liste_test, 'target')
 
     def _update_params(self, df):
-        for tail, head in self.oriented_arcs:
-            self.single_params.pop(head)
-            self.double_params[head, tail] = P2D_l_TAN(df, tail, head)
+        for cond, attr in self.oriented_arcs:
+            self.single_params.pop(attr)
+            self.double_params[attr, cond] = P2D_l_TAN(df, cond, attr)
 
     def estimProbas(self, data):
         def coefficients(value):
             liste = [lh[value][data[attr]] if data[attr] in lh[value] else 0
                      for attr, lh in self.single_params.items()]
             liste += [(tan[value, data[cond]][data[attr]] if data[attr] in tan[value, data[cond]] else 0.)
-                      if (value, data[cond]) in tan else 0.
+                      if (value, data[cond]) in tan else 0  # 1 / len(tan)
                       for (attr, cond), tan in self.double_params.items()]
             return liste
 
