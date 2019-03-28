@@ -38,8 +38,8 @@ def getPrior(df, class_value=1):
     """
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values
-                             == class_value]) / len(target_values)
+    freq = len(target_values[target_values ==
+                             class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -155,6 +155,7 @@ def getJoint(df, attrs):  # P(attrs)
     """
     freqs = df.groupby(attrs)[attrs[0]].count()
     total = len(df)
+    # print(freqs, total, freqs / total)
     return freqs / total
 
 
@@ -199,9 +200,9 @@ def P2D_l(df, attr):
         .. math:: P(attr=a|target=t).
 
     """
-    raw_dico = dict(getJoint(df, ['target', attr])
-                    / getPriorAttribute(df, 'target'))
-    dicos = [{k_t: {k_a: raw_dico[k_t, k_a]}} for k_t, k_a in raw_dico.keys()]
+    raw_dico = dict(getJoint(df, ['target', attr]) /
+                    getPriorAttribute(df, 'target'))
+    dicos = [{k_t: {k_a: proba}} for (k_t, k_a), proba in raw_dico.items()]
     res = {}
     reduce(reduce_update, [res] + dicos)
     return res
@@ -227,7 +228,7 @@ def P2D_p(df, attr):
     """
     raw_dico = dict(getJoint(df, [attr, 'target']
                              ) / getPriorAttribute(df, attr))
-    dicos = [{k_t: {k_a: raw_dico[k_t, k_a]}} for k_t, k_a in raw_dico.keys()]
+    dicos = [{k_t: {k_a: proba}} for (k_t, k_a), proba in raw_dico.items()]
     res = {}
     reduce(reduce_update, [res] + dicos)
     return res
@@ -682,9 +683,10 @@ def divide(num, den):
     The index of the denominator must be a subset of that of the numerator.
     Plus, the two Series must have the same index level.
     """
+    res = num.copy()
     for x in den.index.levels[0]:
-        num[x] = num[x] / den[x]
-    return num
+        res[x] = num[x] / den[x]
+    return res
 
 
 def ConditionalMutualInformation(df, x, y, z):  # I(x;y|z)
@@ -861,60 +863,12 @@ def OrientConnexSets(df, arcs, target):  # TODO: modify
     return oriented_arcs
 
 
-# direct method, i.e. w/o finding roots
-def OrientConnexSets_prev(df, arcs, target):
-    def adjacent_vertices(arcs):
-        adjacents = {}
-        for x, y, _ in arcs:
-            try:
-                adjacents[x].append(y)
-            except:
-                adjacents[x] = [y]
-            try:
-                adjacents[y].append(x)
-            except:
-                adjacents[y] = [x]
-        return adjacents
-
-    mutual_info = [(attr, MutualInformation(df, target, attr))
-                   for attr in df.keys() if attr != target]
-    endpoint = {attr: False for attr in df.keys() if attr != target}
-    visited = {attr: False for attr in df.keys() if attr != target}
-    mutual_info.sort(key=lambda x: x[1])
-    adjacents = adjacent_vertices(arcs)
-    oriented_arcs = []
-    attr, _ = mutual_info.pop()
-    stack = [attr]
-    for _ in range(len(visited)):
-        if stack == []:
-            while visited[mutual_info[len(mutual_info) - 1][0]] is True:
-                mutual_info.pop()
-            stack.append(mutual_info.pop()[0])
-        attr = stack.pop()
-        visited[attr] = True
-        try:
-            for adj in adjacents[attr]:
-                if visited[adj] is True:
-                    continue
-                stack.append(adj)
-                if endpoint[adj] is True:  # only ona input arc per vertex
-                    oriented_arcs.append((adj, attr))
-                else:
-                    endpoint[adj] = True
-                    oriented_arcs.append((attr, adj))
-                # adjacents[adj].remove(attr)
-            # adjacents.pop(attr)
-        except:
-            continue
-    return oriented_arcs
-
-
 def P2D_l_TAN(df, cond, attr):  # P(attr | 'target', cond)
     joint_target_cond_attr = getJoint(df, ['target', cond, attr])
     joint_target_cond = getJoint(df, ['target', cond])
     raw_dico = dict(divide(joint_target_cond_attr, joint_target_cond))
-    dicos = [{(k_t, k_c): {k_a: raw_dico[k_t, k_c, k_a]}}
-             for k_t, k_c, k_a in raw_dico.keys()]
+    dicos = [{(k_t, k_c): {k_a: proba}}
+             for (k_t, k_c, k_a), proba in raw_dico.items()]
     res = {}
     reduce(reduce_update, [res] + dicos)
     return res
@@ -930,27 +884,14 @@ class MAPTANClassifier(APrioriClassifier):
         self.classes = df['target'].unique()
         self.priors = {c: getPrior(df, class_value=c)[
             'estimation'] for c in self.classes}
-        for attr, dico in self.single_params.items():
-            print(attr)
-            print(dico)
-        for (attr, cond), dico in self.double_params.items():
-            print(attr, "|", cond)
-            print(dico)
 
     def _init_arcs(self, df):
         matrix = np.array([[0 if x == y else ConditionalMutualInformation(df, x, y, 'target')
                             for x in df.keys() if x != 'target']
                            for y in df.keys() if y != 'target'])
         SimplifyConditionalMutualInformationMatrix(matrix)  # side-effect
-        liste_test = [('trestbps', 'chol', 0.6814942282235203),
-                      ('age', 'trestbps', 0.641718295908513),
-                      ('age', 'thalach', 0.6365766485465845),
-                      ('chol', 'oldpeak', 0.5246930555244587),
-                      ('oldpeak', 'slope', 0.25839871090530614),
-                      ('chol', 'ca', 0.2528327956181666)]
-        # liste_test = Kruskal(df, matrix)
         self.oriented_arcs = OrientConnexSets(
-            df, liste_test, 'target')
+            df, Kruskal(df, matrix), 'target')
 
     def _update_params(self, df):
         for cond, attr in self.oriented_arcs:
@@ -962,13 +903,18 @@ class MAPTANClassifier(APrioriClassifier):
             liste = [lh[value][data[attr]] if data[attr] in lh[value] else 0
                      for attr, lh in self.single_params.items()]
             liste += [(tan[value, data[cond]][data[attr]] if data[attr] in tan[value, data[cond]] else 0.)
-                      if (value, data[cond]) in tan else 0  # 1 / len(tan)
+                      if (value, data[cond]) in tan else 1 / len(tan)
                       for (attr, cond), tan in self.double_params.items()]
             return liste
 
         dico = {c: self.priors[c] * reduce(lambda x, y: x * y, coefficients(c))
                 for c in self.classes}
         return normaliseDico(dico)
+
+    def estimClass(self, data):
+        dico = self.estimProbas(data)
+        estimates = sorted(dico.items())
+        return max(estimates, key=lambda x: x[1])[0]
 
     def draw(self):
         children = ""
