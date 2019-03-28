@@ -327,7 +327,7 @@ def memory_size(size):
 
     Returns
     -------
-    d : dict
+    d : dict of str : int
         dictionnaire repésentant la taille en mémoire des tables en kilooctets,
         megaoctets et gigaoctets.
     o : int
@@ -344,20 +344,19 @@ def memory_size(size):
 
 
 def print_size(size, d, o, attributs):
-    """Affiche le dictionnaire representant la taille en mémoire des tables
-    𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘).
+    """Affiche le dictionnaire representant la taille en mémoire des tables .. math:: P(target|attr1,..,attrK).
 
     Parameters
     ----------
     size : int
         Cardinalité des tables pour lesquelles on souhaite calculer la taille
         en mémoire.
-    d : dict
+    d : dict of str : int
         dictionnaire repésentant la taille en mémoire des tables en kilooctets,
         megaoctets et gigaoctets.
     o : int
         taille en mémoire des tables en octets.
-    attributs : list
+    attributs : list of str
         liste des attributs necessaire pour construire la prédiction de target.
 
     """
@@ -371,18 +370,19 @@ def print_size(size, d, o, attributs):
 
 
 def nbParams(data, attr=None):
-    """Calcule et affiche la taille en mémoire des tables 𝑃(𝑡𝑎𝑟𝑔𝑒𝑡|𝑎𝑡𝑡𝑟1,..,𝑎𝑡𝑡𝑟𝑘).
+    """Calcule et affiche la taille en mémoire des tables .. math:: P(target|attr1,..,attrK).
 
     Parameters
     ----------
     data : pandas.DataFrame
         dataframe contenant les données issues de la base initiale.
-    attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
+    attr : list of str
+        liste contenant les attributs pris en considération dans le calcul.
 
     Notes
     -----
-    On a considéré qu'un float est représenté sur 8 octets.
+    On considère qu'un float est représenté sur 8 octets.
+    Cette méthode utilise les méthodes auxiliaire  memory_size et print_size.
 
     """
     size = 1
@@ -400,14 +400,14 @@ def nbParams(data, attr=None):
 
 def nbParamsIndep(data, attr=None):
     """Calcule et affiche la taille en mémoire nécessaire pour représenter les
-    tables et en supposant l'indépendance des variables.
+    tables en supposant l'indépendance des variables.
 
     Parameters
     ----------
     data : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale.
-    attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
+        La base d'examples.
+    attr : list of str
+        liste contenant les attributs pris en considération dans le calcul.
 
     """
     memory_size = 0
@@ -424,14 +424,14 @@ def nbParamsIndep(data, attr=None):
 
 # Question 5
 def drawNaiveBayes(df, attr):
-    """Dessine le graphe representant un modèle naive bayes.
+    """Dessine un graphe orienté représentant naïve Bayes
 
     Parameters
     ----------
     df: pandas.DataFrame
-        dataframe contenant les données issues de la base initiale.
+        La base d'examples.
     attr : str
-        nom de la colonne qui représente la classe.
+        nom de la colonne qui représente la classe et qui est utilisé comme racine.
 
     Returns
     -------
@@ -451,11 +451,11 @@ def nbParamsNaiveBayes(df, attr, list_attr=None):
     Parameters
     ----------
     df : pandas.DataFrame
-        dataframe contenant les données issues de la base initiale.
+        La base d'examples.
     attr : str
-        nom de la colonne qui représente la classe.
-    list_attr : list
-        liste contenant ['target', 'attr1', 'attr2',...,'attrK'].
+        nom de la colonne qui représente la classe et qui est utilisé comme racine.
+    list_attr : list of str
+        liste contenant les attributs pris en considération dans le calcul.
 
     """
     facteur = (len(df[attr].unique()))
@@ -475,6 +475,18 @@ def nbParamsNaiveBayes(df, attr, list_attr=None):
 
 def params(df, P2D):  # TODO: doc
     """
+    renvoie un dictionnaire les vraisemblances d'observer chaque attribut sachant les valeurs prises par target.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        La base d'examples.
+    P2D : function
+        fonction qui calcule une probabilité conditionnelle, soit la probabilité de la classe sachant un attribut (P2D_p)
+        ou Calcule la probabilité d'un attribut sachant la classe (P2D_l)
+    Returns
+    ---------
+    dict of int : (dict of number: float)
+        un dictionnaire les vraisemblances d'observer chaque attribut sachant les valeurs prises par target.
     """
     return {attr: P2D(df, attr) for attr in df.keys() if attr != 'target'}
 
@@ -485,7 +497,7 @@ class MLNaiveBayesClassifier(APrioriClassifier):
 
     Parameters
     ----------
-    params: dict
+    params: dict of int: (dict of number: float)
         dictionnaire contenant les vraisemblances d'observer chaque attribut
         sachant les valeurs prises par target.
 
@@ -504,11 +516,11 @@ class MLNaiveBayesClassifier(APrioriClassifier):
         Parameters
         ----------
         data: pandas.DataFrame
-            dataframe contenant les données issues de la base initiale.
+            La base d'examples.
 
         Returns
         -------
-        dict
+        dict of int: float
             Dictionnaire contenant la vraisemblance d'observer les attributs
             d'un individu pour chacune des valeurs prises par target.
         """
@@ -553,7 +565,7 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
 
     Parameters
     ----------
-    params: dict
+    params:dict of int: (dict of number: float)
         dictionnaire contenant les vraisemblances d'observer chaque attribut
         sachant les valeurs prises par target.
 
@@ -574,11 +586,11 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
         Parameters
         ----------
         data: pandas.DataFrame
-            dataframe contenant les données issues de la base initiale.
+            La base d'examples.
 
         Returns
         -------
-        dict
+        dict of int: float
             Dictionnaire contenant la vraisemblance d'observer les attributs
             d'un individu pour chacune des valeurs prises par target.
         """
@@ -598,51 +610,99 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
 
 # Question 6
 def isIndepFromTarget(df, attr, x):
+    """
+    Verifie si l'attribut attr est indépendant de target au seuil x%.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+    La base d'examples.
+    attr : str
+    nom de l'attribut pour lequel on souhaite verifier si il y'a indépendance avec target.
+    x : float
+    seuil de confiance.
+    Returns
+    -------
+    boolean
+    True si attr est indépendant de target au seuil de x%, False sinon.
+    """
     attr_values = df[attr].unique()
     dico = np.zeros((len(attr_values), 2))
     index_of = {v: i for i, v in enumerate(attr_values)}
     target_attr = df.groupby(['target', attr])['target'].count().to_dict()
     for (cl, v), n in target_attr.items():
         dico[index_of[v]][cl] += n
-    chi2, p, lib, expected = scipy.stats.chi2_contingency(dico)
-    return x < p
+
+        chi2, p, lib, expected = scipy.stats.chi2_contingency(dico)
+        return x < p
 
 
 class ReducedMLNaiveBayesClassifier(MLNaiveBayesClassifier):
-    def __init__(self, df, threshold):
-        MLNaiveBayesClassifier.__init__(self, df)
-        deletion = []
-        for attr, dico in self.params.items():
-            if isIndepFromTarget(df, attr, threshold):
-                deletion.append(attr)
-        for attr in deletion:
-            del self.params[attr]
+        """
+        Classifieur par maximum de vraissemblance utilisant le modèle naïve Bayes reduit.
 
-    def draw(self):
-        s = ""
-        for k in self.params:
-            s += " " + k
-        return ut.drawGraph('target' + "->{" + s + "}")
+        Notes
+        ---------
+        Le tableau deletion permet de recupérer tous les attributs indépendant de target au seuil threshold%
+        et ensuite on les supprime de params afin de ne pas les prendre en consideration."""
+        def __init__(self, df, threshold):
+            MLNaiveBayesClassifier.__init__(self, df)
+            deletion = []
+            for attr, dico in self.params.items():
+                if isIndepFromTarget(df, attr, threshold):
+                    deletion.append(attr)
+            for attr in deletion:
+                del self.params[attr]
+
+        def draw(self):
+            s = ""
+            for k in self.params:
+                s += " " + k
+            return ut.drawGraph('target' + "->{" + s + "}")
 
 
 class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
+    """
+    Classifieur basé sur le principe du maximum a posteriori et utilisant le modèle naïve Bayes reduit.
+
+    Notes
+    ---------
+    Le tableau deletion permet de recupérer tous les attributs indépendant de target au seuil threshold%
+    et ensuite on les supprime de params afin de ne pas les prendre en consideration.
+    """
     def __init__(self, df, threshold):
         MAPNaiveBayesClassifier.__init__(self, df)
         deletion = []
         for attr, dico in self.params.items():
             if isIndepFromTarget(df, attr, threshold):
                 deletion.append(attr)
-        for attr in deletion:
-            del self.params[attr]
+                for attr in deletion:
+                    del self.params[attr]
 
-    def draw(self):
-        s = ""
-        for k in self.params:
-            s += " " + k
-        return ut.drawGraph('target' + "->{" + s + "}")
+                    def draw(self):
+                        """
+                        Dessine un graphe orienté représentant naïve Bayes réduit.
+                        """
+                        s = ""
+                        for k in self.params:
+                            s += " " + k
+                            return ut.drawGraph('target' + "->{" + s + "}")
 
 
 def mapClassifiers(dico, train):
+    """
+    Representation graphique des classifieurs selon leurs couple (Precision, Rappel).
+    Parameters
+    ----------
+    dico: dict of str:instance
+        dictionnaire {nom:instance de classifieur}.
+    train : pandas.DataFrame
+        La base d'examples.
+
+    Returns
+    ----------
+        Affiche une représentation dans l'espace de ces classifiers selon les valeurs (Precision, Rappel).
+    """
     precision = [v.statsOnDF(train)['Precision'] for k, v in dico.items()]
     recall = [v.statsOnDF(train)['Rappel'] for k, v in dico.items()]
     labels = dico.keys()
@@ -654,6 +714,21 @@ def mapClassifiers(dico, train):
 
 
 def MutualInformation(df, x, y):  # I(x;y)
+    """
+    Calcule l'information mutuelle entre les colonnes x et y dans le dataFrame df.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        La base d'examples.
+    x: str
+        nom d'une colonne dans df.
+    y: str
+        nom d'une colonne dans df.
+    Returns
+    ----------
+    float
+        l'information mutuelle entre x et y.
+    """
     prior_x = getPriorAttribute(df, x)  # P(x)
     prior_y = getPriorAttribute(df, y)  # P(y)
     joint = getJoint(df, [x, y])        # P(x, y)
@@ -690,6 +765,23 @@ def divide(num, den):
 
 
 def ConditionalMutualInformation(df, x, y, z):  # I(x;y|z)
+    """
+    Calcule l'information mutuelle conditionnelle entre les colonnes x et y dans le dataFrame df en considérant le fait qu'elles soient indépendantes de z.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        La base d'examples.
+    x: str
+        nom d'une colonne dans df.
+    y: str
+        nom d'une colonne dans df.
+    z: str
+        nom d'une colonne dans df.
+    Returns
+    ----------
+    float
+        l'information mutuelle conditionnelle entre x et y.
+    """
     prior_z = getPriorAttribute(df, z)      # P(z)
     joint_z_x_y = getJoint(df, [z, x, y])   # P(z, x, y)
     joint_z_x = getJoint(df, [z, x])        # P(z, x)
@@ -703,12 +795,32 @@ def ConditionalMutualInformation(df, x, y, z):  # I(x;y|z)
 
 
 def MeanForSymetricWeights(matrix):
+    """
+    Calcule la moyenne des poids pour une matrice symétrique de diagonale nulle.
+    Parameters
+    ----------
+    matrix : numpy.ndarray
+        matrice symétrique de diagonale nulle.
+    Returns
+    ---------
+    float
+        moyenne des poids d'une matrice symétrique de diagonale nulle.
+    """
     size = np.sqrt(matrix.size)
     size *= size - 1
     return matrix.sum() / size
 
 
 def SimplifyConditionalMutualInformationMatrix(matrix):
+    """
+    Annule toutes les valeurs plus petites que sa moyenne dans une matrice
+    symétrique de diagonale nulle.
+    Parameters
+    ----------
+    matrix : numpy.ndarray
+        matrice symétrique de diagonale nulle.
+
+    """
     mean = MeanForSymetricWeights(matrix)
     matrix[...] = np.where(matrix < mean, 0, matrix)
 
