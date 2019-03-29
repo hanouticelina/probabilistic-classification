@@ -305,7 +305,7 @@ class MAP2DClassifier(APrioriClassifier):
         -------
         int
             La classe de plus grande probabilité sachant la valeur prise par
-            l'attribut.
+            l'attribut `self.attr`.
 
         """
         target_attr = [(c, p)
@@ -552,7 +552,7 @@ class MLNaiveBayesClassifier(APrioriClassifier):
 
         Parameters
         ----------
-        attrs : dict of str: int
+        data : dict of str: int
             La table d'association contenant la valeur pour chaque nom d'attribut
             de l'individu.
 
@@ -632,15 +632,15 @@ class MAPNaiveBayesClassifier(APrioriClassifier):
 
         Parameters
         ----------
-        attrs : dict of str: int
+        data : dict of str: int
             La table d'association contenant la valeur pour chaque nom d'attribut
             de l'individu.
 
         Returns
         -------
         int
-            La classe de plus grande probabilité sachant la valeur prise par
-            l'attribut.
+            La classe de plus grande probabilité sachant les valeurs prises par
+            les autres attributs.
 
         """
         dico = self.estimProbas(data)
@@ -772,6 +772,8 @@ def mapClassifiers(dico, train):
     labels = dico.keys()
     fig, ax = plt.subplots()
     ax.scatter(precision, recall, c="red", marker="x")
+    ax.set_xlabel('Précision')
+    ax.set_ylabel('Rappel')
     for i, l in enumerate(labels):
         ax.annotate(l, (precision[i], recall[i]))
     plt.show()
@@ -1159,6 +1161,19 @@ class MAPTANClassifier(APrioriClassifier):
             self.double_params[attr, cond] = P2D_l_TAN(df, cond, attr)
 
     def estimProbas(self, data):
+        """Calcule la probabilité de la classe étant donné les autres attributs.
+
+        Parameters
+        ----------
+        data: pandas.DataFrame
+            La base d'examples.
+
+        Returns
+        -------
+        dict of int: float
+            Dictionnaire contenant la probabilité de chaque classe.
+
+        """
         def coefficients(value):
             liste = [lh[value][data[attr]] if data[attr] in lh[value] else 0
                      for attr, lh in self.single_params.items()]
@@ -1172,11 +1187,38 @@ class MAPTANClassifier(APrioriClassifier):
         return normaliseDico(dico)
 
     def estimClass(self, data):
+        """Estime la classe d'un individu donné.
+
+        Parameters
+        ----------
+        data : dict of str: int
+            La table d'association contenant la valeur pour chaque nom d'attribut
+            de l'individu.
+
+        Returns
+        -------
+        int
+            La classe de plus grande probabilité sachant les valeurs prises par
+            les attributs.
+
+        """
         dico = self.estimProbas(data)
         estimates = sorted(dico.items())
         return max(estimates, key=lambda x: x[1])[0]
 
     def draw(self):
+        """Dessine un graphe orienté représentant ce classifieur.
+
+        Parameters
+        ----------
+        df: pandas.DataFrame
+            La base d'examples.
+
+        Returns
+        -------
+            Graphe du modèle MAP TAN Naïve Bayes
+
+        """
         children = ""
         for attr in self.single_params:
             children += " " + attr
