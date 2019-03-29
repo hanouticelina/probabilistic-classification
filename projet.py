@@ -38,8 +38,8 @@ def getPrior(df, class_value=1):
     """
     t_alpha = 1.96
     target_values = df.target
-    freq = len(target_values[target_values ==
-                             class_value]) / len(target_values)
+    freq = len(target_values[target_values
+                             == class_value]) / len(target_values)
     std = np.sqrt(freq * (1 - freq) / target_values.size)
     min5percent = freq - t_alpha * std
     max5percent = freq + t_alpha * std
@@ -200,8 +200,8 @@ def P2D_l(df, attr):
         .. math:: P(attr=a|target=t).
 
     """
-    raw_dico = dict(getJoint(df, ['target', attr]) /
-                    getPriorAttribute(df, 'target'))
+    raw_dico = dict(getJoint(df, ['target', attr])
+                    / getPriorAttribute(df, 'target'))
     dicos = [{k_t: {k_a: proba}} for (k_t, k_a), proba in raw_dico.items()]
     res = {}
     reduce(reduce_update, [res] + dicos)
@@ -616,15 +616,16 @@ def isIndepFromTarget(df, attr, x):
     Parameters
     ----------
     df: pandas.DataFrame
-    La base d'examples.
+        La base d'examples.
     attr : str
-    nom de l'attribut pour lequel on souhaite verifier si il y'a indépendance avec target.
+        nom de l'attribut pour lequel on souhaite verifier si il y'a indépendance avec target.
     x : float
-    seuil de confiance.
+        seuil de confiance.
+
     Returns
     -------
     boolean
-    True si attr est indépendant de target au seuil de x%, False sinon.
+        True si attr est indépendant de target au seuil de x%, False sinon.
     """
     attr_values = df[attr].unique()
     dico = np.zeros((len(attr_values), 2))
@@ -632,33 +633,33 @@ def isIndepFromTarget(df, attr, x):
     target_attr = df.groupby(['target', attr])['target'].count().to_dict()
     for (cl, v), n in target_attr.items():
         dico[index_of[v]][cl] += n
-
-        chi2, p, lib, expected = scipy.stats.chi2_contingency(dico)
-        return x < p
+    chi2, p, lib, expected = scipy.stats.chi2_contingency(dico)
+    return x < p
 
 
 class ReducedMLNaiveBayesClassifier(MLNaiveBayesClassifier):
-        """
-        Classifieur par maximum de vraissemblance utilisant le modèle naïve Bayes reduit.
+    """
+    Classifieur par maximum de vraissemblance utilisant le modèle naïve Bayes reduit.
 
-        Notes
-        ---------
-        Le tableau deletion permet de recupérer tous les attributs indépendant de target au seuil threshold%
-        et ensuite on les supprime de params afin de ne pas les prendre en consideration."""
-        def __init__(self, df, threshold):
-            MLNaiveBayesClassifier.__init__(self, df)
-            deletion = []
-            for attr, dico in self.params.items():
-                if isIndepFromTarget(df, attr, threshold):
-                    deletion.append(attr)
-            for attr in deletion:
-                del self.params[attr]
+    Notes
+    ---------
+    Le tableau deletion permet de recupérer tous les attributs indépendant de target au seuil threshold%
+    et ensuite on les supprime de params afin de ne pas les prendre en consideration."""
 
-        def draw(self):
-            s = ""
-            for k in self.params:
-                s += " " + k
-            return ut.drawGraph('target' + "->{" + s + "}")
+    def __init__(self, df, threshold):
+        MLNaiveBayesClassifier.__init__(self, df)
+        deletion = []
+        for attr, dico in self.params.items():
+            if isIndepFromTarget(df, attr, threshold):
+                deletion.append(attr)
+        for attr in deletion:
+            del self.params[attr]
+
+    def draw(self):
+        s = ""
+        for k in self.params:
+            s += " " + k
+        return ut.drawGraph('target' + "->{" + s + "}")
 
 
 class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
@@ -670,23 +671,24 @@ class ReducedMAPNaiveBayesClassifier(MAPNaiveBayesClassifier):
     Le tableau deletion permet de recupérer tous les attributs indépendant de target au seuil threshold%
     et ensuite on les supprime de params afin de ne pas les prendre en consideration.
     """
+
     def __init__(self, df, threshold):
         MAPNaiveBayesClassifier.__init__(self, df)
         deletion = []
         for attr, dico in self.params.items():
             if isIndepFromTarget(df, attr, threshold):
                 deletion.append(attr)
-                for attr in deletion:
-                    del self.params[attr]
+        for attr in deletion:
+            del self.params[attr]
 
-                    def draw(self):
-                        """
-                        Dessine un graphe orienté représentant naïve Bayes réduit.
-                        """
-                        s = ""
-                        for k in self.params:
-                            s += " " + k
-                            return ut.drawGraph('target' + "->{" + s + "}")
+    def draw(self):
+        """
+        Dessine un graphe orienté représentant naïve Bayes réduit.
+        """
+        s = ""
+        for k in self.params:
+            s += " " + k
+        return ut.drawGraph('target' + "->{" + s + "}")
 
 
 def mapClassifiers(dico, train):
